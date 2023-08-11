@@ -40,9 +40,9 @@
 
 // I2S Microphone PIN ESP S3
 
-#define I2S_SD 42
-#define I2S_SCK 41
-#define I2S_WS 40
+#define I2S_SD GPIO_NUM_10
+#define I2S_SCK GPIO_NUM_12
+#define I2S_WS GPIO_NUM_11
 
 // I2S Microphone PIN ESP32
 
@@ -51,24 +51,28 @@
 // #define I2S_SD 33
 
 // Servo pins definitions
-#define PIN_SERVO_0 GPIO_NUM_4
-#define PIN_SERVO_1 GPIO_NUM_16
-#define PIN_SERVO_2 GPIO_NUM_18
-#define PIN_SERVO_3 GPIO_NUM_19
-#define PIN_SERVO_4 GPIO_NUM_21
+#define PIN_SERVO_0 GPIO_NUM_6
+#define PIN_ELBOW_SERVO GPIO_NUM_16
+#define PIN_GRIPPER_SERVO GPIO_NUM_18
+#define PIN_SHOULDER_SERVO GPIO_NUM_19
+#define PIN_BASE_SERVO GPIO_NUM_21
 
 servoControl myServo0;
-servoControl myServo1;
-servoControl myServo2;
-servoControl myServo3;
-servoControl myServo4;
+servoControl elbowServo;
+servoControl gripperServo;
+servoControl shoulderServo;
+servoControl baseServo;
 
 // Servo positions
-int positionServo0 = 0;
-int positionServo1 = 0;
-int positionServo2 = 0;
-int positionServo3 = 0;
-int positionServo4 = 0;
+#define MAX_SERVO_POSITION 150
+#define MIN_SERVO_POSITION 30
+#define STEP_SERVO 30
+
+int positionServo0 = MIN_SERVO_POSITION;
+int positionElbowServo = MIN_SERVO_POSITION;
+int positionGripperServo = MIN_SERVO_POSITION * 2;
+int positionShoulderServo = MIN_SERVO_POSITION;
+int positionBaseServo = MIN_SERVO_POSITION;
 
 /** Audio buffers, pointers and selectors */
 typedef struct
@@ -103,7 +107,13 @@ __attribute__((weak)) void *ei_malloc(size_t size);
 __attribute__((weak)) void *ei_calloc(size_t nitems, size_t size);
 __attribute__((weak)) void ei_free(void *ptr);
 void configureServos();
-// void ejecuteMovementAction(String palabra);
+void upMoviment();
+void downMoviment();
+void leftMoviment();
+void rigthMoviment();
+void openMoviment();
+void closeMoviment();
+void ejecuteMovementAction(const char *str);
 
 static void audio_inference_callback(uint32_t n_bytes)
 {
@@ -333,7 +343,7 @@ extern "C" void app_main(void)
 
     // print the predictions
     printf("Predictions ");
-    printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)",
+    printf("(DSP: %d ms., Classification: %d ms., Anomaly: %d ms.)\n",
            result.timing.dsp, result.timing.classification, result.timing.anomaly);
     size_t winner = 0;
     float valueTemp = 0;
@@ -350,10 +360,10 @@ extern "C" void app_main(void)
     }
     printf("winner:    %s: \n", result.classification[winner].label);
     printf("\t %f\n", result.classification[winner].value);
-    printf("comparacion:   %d \n", (int)result.classification[winner].value > 0.7);
-    if (result.classification[winner].value > 0.5)
+    printf("comparacion:   %d \n\n\n", (int)result.classification[winner].value > 0.7);
+    if (result.classification[winner].value > 0.4)
     {
-      // ejecuteMovementAction(result.classification[winner].label);
+      ejecuteMovementAction(result.classification[winner].label);
     }
 #if EI_CLASSIFIER_HAS_ANOMALY == 1
     printf("    anomaly score: ");
@@ -425,79 +435,175 @@ __attribute__((weak)) void ei_free(void *ptr)
 void configureServos()
 {
   myServo0.attach(PIN_SERVO_0, 400, 2600, LEDC_CHANNEL_0, LEDC_TIMER_0);
-  myServo1.attach(PIN_SERVO_1, 400, 2600, LEDC_CHANNEL_1, LEDC_TIMER_0);
-  myServo2.attach(PIN_SERVO_2, 400, 2600, LEDC_CHANNEL_2, LEDC_TIMER_0);
-  myServo3.attach(PIN_SERVO_3, 400, 2600, LEDC_CHANNEL_3, LEDC_TIMER_0);
-  myServo4.attach(PIN_SERVO_4, 400, 2600, LEDC_CHANNEL_4, LEDC_TIMER_0);
+  elbowServo.attach(PIN_ELBOW_SERVO, 400, 2600, LEDC_CHANNEL_1, LEDC_TIMER_0);
+  gripperServo.attach(PIN_GRIPPER_SERVO, 400, 2600, LEDC_CHANNEL_2, LEDC_TIMER_0);
+  shoulderServo.attach(PIN_SHOULDER_SERVO, 400, 2600, LEDC_CHANNEL_3, LEDC_TIMER_0);
+  baseServo.attach(PIN_BASE_SERVO, 400, 2600, LEDC_CHANNEL_4, LEDC_TIMER_0);
+
+  vTaskDelay(pdMS_TO_TICKS(500));
 
   myServo0.write(90);
-  myServo1.write(90);
-  myServo2.write(90);
-  myServo3.write(90);
-  myServo4.write(90);
-  for (int i = 0; i < 180; i++)
+  elbowServo.write(positionElbowServo);
+  gripperServo.write(positionGripperServo);
+  shoulderServo.write(positionShoulderServo);
+  baseServo.write(positionBaseServo);
+
+  downMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+  downMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+  downMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  closeMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+  closeMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  upMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+  upMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  leftMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  downMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+  downMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  openMoviment();
+  vTaskDelay(pdMS_TO_TICKS(500));
+}
+
+void upMoviment()
+{
+  printf("UP - Elbow: %d Shoulder: %d \n", positionElbowServo, positionShoulderServo);
+
+  if (positionElbowServo <= MIN_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO; i++)
   {
-    myServo0.write(i);
-    myServo1.write(i);
-    myServo2.write(i);
-    myServo3.write(i);
-    myServo4.write(i);
-    vTaskDelay(pdMS_TO_TICKS(20));
-  }
-  for (int i = 180; i > 0; i--)
-  {
-    myServo0.write(i);
-    myServo1.write(i);
-    myServo2.write(i);
-    myServo3.write(i);
-    myServo4.write(i);
+    positionElbowServo--;
+    positionShoulderServo--;
+    elbowServo.write(positionElbowServo);
+    shoulderServo.write(positionShoulderServo);
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
 
-/*void ejecuteMovementAction(String palabra)
+void downMoviment()
+{
+  printf("DOWN - Elbow: %d Shoulder: %d \n", positionElbowServo, positionShoulderServo);
+
+  if (positionElbowServo >= MAX_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO; i++)
+  {
+    positionElbowServo++;
+    positionShoulderServo++;
+    elbowServo.write(positionElbowServo);
+    shoulderServo.write(positionShoulderServo);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void leftMoviment()
+{
+  printf("LEFT - Base: %d \n", positionBaseServo);
+  if (positionBaseServo >= MAX_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO; i++)
+  {
+    positionBaseServo++;
+    baseServo.write(positionBaseServo);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void rigthMoviment()
+{
+  printf("RIGTH - Base: %d \n", positionBaseServo);
+  if (positionBaseServo <= MIN_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO; i++)
+  {
+    positionBaseServo--;
+    baseServo.write(positionBaseServo);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void openMoviment()
+{
+  printf("OPEN - Gripper: %d \n", positionGripperServo);
+  if (positionGripperServo <= MIN_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO / 2; i++)
+  {
+    positionGripperServo--;
+    gripperServo.write(positionGripperServo);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void closeMoviment()
+{
+  printf("CLOSE - Gripper: %d \n", positionGripperServo);
+  if (positionGripperServo >= MAX_SERVO_POSITION)
+    return;
+
+  for (int i = 0; i < STEP_SERVO / 2; i++)
+  {
+    positionGripperServo++;
+    gripperServo.write(positionGripperServo);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void ejecuteMovementAction(const char *str)
 {
 
-  if (strcmp(palabra, "left") == 0)
+  if (strcmp(str, "left") == 0)
   {
-    positionServo0 += 30;
-    myServo0.write(positionServo0);
+    leftMoviment();
   }
 
-  if (strcmp(palabra, "right") == 0)
+  if (strcmp(str, "right") == 0)
   {
-    positionServo1 += 30;
-    myServo1.write(positionServo1);
+    rigthMoviment();
   }
 
-  if (strcmp(palabra, "go") == 0)
+  if (strcmp(str, "go") == 0)
   {
-    positionServo2 += 30;
-    myServo2.write(positionServo2);
+    leftMoviment();
   }
 
-  if (strcmp(palabra, "no") == 0)
+  if (strcmp(str, "no") == 0)
   {
-    positionServo3 += 30;
-    myServo3.write(positionServo3);
   }
 
-  if (strcmp(palabra, "stop") == 0)
+  if (strcmp(str, "stop") == 0)
   {
-    positionServo4 += 30;
-    myServo4.write(positionServo4);
   }
 
-  if (strcmp(palabra, "up") == 0)
+  if (strcmp(str, "down") == 0)
   {
-    positionServo4 += 30;
-    myServo4.write(positionServo4);
+    downMoviment();
   }
 
-  if (strcmp(palabra, "yes") == 0)
+  if (strcmp(str, "up") == 0)
   {
-    positionServo4 += 30;
-    myServo4.write(positionServo4);
+    upMoviment();
+  }
+
+  if (strcmp(str, "yes") == 0)
+  {
   }
 }
-*/

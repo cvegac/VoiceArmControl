@@ -33,9 +33,7 @@
 
 /build
 /temp
-/.devcontainer
 
 #/firmware-sdk
 
-/.vscode
 .DS_Store

@@ -51,11 +51,11 @@
 // #define I2S_SD 33
 
 // Servo pins definitions
+#define PIN_BASE_SERVO GPIO_NUM_21
 #define PIN_SERVO_0 GPIO_NUM_6
 #define PIN_ELBOW_SERVO GPIO_NUM_16
-#define PIN_GRIPPER_SERVO GPIO_NUM_18
 #define PIN_SHOULDER_SERVO GPIO_NUM_19
-#define PIN_BASE_SERVO GPIO_NUM_21
+#define PIN_GRIPPER_SERVO GPIO_NUM_18
 
 servoControl myServo0;
 servoControl elbowServo;
